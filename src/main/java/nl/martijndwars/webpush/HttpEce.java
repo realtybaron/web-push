@@ -11,7 +11,6 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.*;
-import java.util.Arrays;
 import java.util.Map;
 
 /**
@@ -148,7 +147,10 @@ public class HttpEce {
      * Utility to concat byte arrays
      */
     private byte[] concat(byte[]... arrays) {
-        int combinedLength = Arrays.stream(arrays).mapToInt(array -> array.length).sum();
+        int combinedLength = 0;
+        for (byte[] array : arrays) {
+            combinedLength += array.length;
+        }
         int lastPos = 0;
 
         byte[] combined = new byte[combinedLength];
