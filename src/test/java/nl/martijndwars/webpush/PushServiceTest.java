@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 public class PushServiceTest {
     @BeforeClass
@@ -34,16 +33,16 @@ public class PushServiceTest {
         byte[] userAuth = BaseEncoding.base64Url().decode(encodedUserAuth);
 
         Notification notification = new GcmNotification(
-            endpoint,
-            userPublicKey,
-            userAuth,
-            "{\"title\": \"Hello\", \"message\": \"World\"}".getBytes()
+                endpoint,
+                userPublicKey,
+                userAuth,
+                "{\"title\": \"Hello\", \"message\": \"World\"}".getBytes()
         );
 
         PushService pushService = new PushService(gcmApiKey);
-        Future<Content> httpResponse = pushService.send(notification);
+        Content httpResponse = pushService.send(notification);
 
-        System.out.println(httpResponse.get().asString());
+        System.out.println(httpResponse.asString());
     }
 
     @Test
@@ -56,15 +55,15 @@ public class PushServiceTest {
         PublicKey userPublicKey = Utils.loadPublicKey(encodedUserPublicKey);
 
         Notification notification = new Notification(
-            endpoint,
-            userPublicKey,
-            null,
-            "{\"title\": \"Hello\", \"message\": \"World\"}".getBytes()
+                endpoint,
+                userPublicKey,
+                null,
+                "{\"title\": \"Hello\", \"message\": \"World\"}".getBytes()
         );
 
         PushService pushService = new PushService();
-        Future<Content> httpResponse = pushService.send(notification);
+        Content httpResponse = pushService.send(notification);
 
-        System.out.println(httpResponse.get().asString());
+        System.out.println(httpResponse.asString());
     }
 }

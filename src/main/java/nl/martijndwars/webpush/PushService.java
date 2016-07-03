@@ -1,7 +1,6 @@
 package nl.martijndwars.webpush;
 
 import com.google.common.io.BaseEncoding;
-import org.apache.http.client.fluent.Async;
 import org.apache.http.client.fluent.Content;
 import org.apache.http.client.fluent.Request;
 import org.apache.http.entity.ContentType;
@@ -19,12 +18,8 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 public class PushService {
-    private ExecutorService threadpool = Executors.newFixedThreadPool(1);
 
     private String gcmApiKey;
 
@@ -42,7 +37,10 @@ public class PushService {
      * @return An Encrypted object containing the public key, salt, and
      * ciphertext, which can be sent to the other party.
      */
-    public static Encrypted encrypt(byte[] buffer, PublicKey userPublicKey, byte[] userAuth, int padSize) throws NoSuchProviderException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException, NoSuchPaddingException, BadPaddingException, IllegalBlockSizeException, InvalidKeySpecException, IOException {
+    public static Encrypted encrypt(byte[] buffer,
+                                    PublicKey userPublicKey,
+                                    byte[] userAuth,
+                                    int padSize) throws NoSuchProviderException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException, NoSuchPaddingException, BadPaddingException, IllegalBlockSizeException, InvalidKeySpecException, IOException {
         ECNamedCurveParameterSpec parameterSpec = ECNamedCurveTable.getParameterSpec("prime256v1");
 
         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("ECDH", "BC");
@@ -62,32 +60,32 @@ public class PushService {
         byte[] ciphertext = httpEce.encrypt(buffer, salt, null, "server-key-id", userPublicKey, userAuth, padSize);
 
         return new Encrypted.Builder()
-            .withSalt(salt)
-            .withPublicKey(serverKey.getPublic())
-            .withCiphertext(ciphertext)
-            .build();
+                .withSalt(salt)
+                .withPublicKey(serverKey.getPublic())
+                .withCiphertext(ciphertext)
+                .build();
     }
 
     /**
      * Send a notification
      */
-    public Future<Content> send(Notification notification) throws NoSuchPaddingException, InvalidKeyException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, NoSuchProviderException, InvalidAlgorithmParameterException, IOException, InvalidKeySpecException {
+    public Content send(Notification notification) throws NoSuchPaddingException, InvalidKeyException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, NoSuchProviderException, InvalidAlgorithmParameterException, IOException, InvalidKeySpecException {
         BaseEncoding base64url = BaseEncoding.base64Url();
         BaseEncoding base64 = BaseEncoding.base64();
 
         Encrypted encrypted = encrypt(
-            notification.getPayload(),
-            notification.getUserPublicKey(),
-            notification.getUserAuth(),
-            notification.getPadSize()
+                notification.getPayload(),
+                notification.getUserPublicKey(),
+                notification.getUserAuth(),
+                notification.getPadSize()
         );
 
         byte[] dh = Utils.savePublicKey((ECPublicKey) encrypted.getPublicKey());
         byte[] salt = encrypted.getSalt();
 
         Request request = Request
-            .Post(notification.getEndpoint())
-            .addHeader("TTL", String.valueOf(notification.getTTL()));
+                .Post(notification.getEndpoint())
+                .addHeader("TTL", String.valueOf(notification.getTTL()));
 
         if (notification instanceof GcmNotification) {
             if (null == gcmApiKey) {
@@ -95,27 +93,25 @@ public class PushService {
             }
 
             String body = new JSONObject()
-                .put("registration_ids", Collections.singletonList(((GcmNotification) notification).getRegistrationId()))
-                .put("raw_data", base64.encode(encrypted.getCiphertext()))
-                .toString();
+                    .put("registration_ids", Collections.singletonList(((GcmNotification) notification).getRegistrationId()))
+                    .put("raw_data", base64.encode(encrypted.getCiphertext()))
+                    .toString();
 
             request
-                .addHeader("Authorization", "key=" + gcmApiKey)
-                .addHeader("Encryption", "keyid=p256dh;salt=" + base64url.encode(salt))
-                .addHeader("Crypto-Key", "dh=" + base64url.encode(dh))
-                .addHeader("Content-Encoding", "aesgcm")
-                .bodyString(body, ContentType.APPLICATION_JSON);
+                    .addHeader("Authorization", "key=" + gcmApiKey)
+                    .addHeader("Encryption", "keyid=p256dh;salt=" + base64url.encode(salt))
+                    .addHeader("Crypto-Key", "dh=" + base64url.encode(dh))
+                    .addHeader("Content-Encoding", "aesgcm")
+                    .bodyString(body, ContentType.APPLICATION_JSON);
         } else {
             request
-                .addHeader("Content-Type", "application/octet-stream")
-                .addHeader("Content-Encoding", "aesgcm128")
-                .addHeader("Encryption-Key", "keyid=p256dh;dh=" + base64url.omitPadding().encode(dh))
-                .addHeader("Encryption", "keyid=p256dh;salt=" + base64url.omitPadding().encode(salt))
-                .bodyByteArray(encrypted.getCiphertext());
+                    .addHeader("Content-Type", "application/octet-stream")
+                    .addHeader("Content-Encoding", "aesgcm128")
+                    .addHeader("Encryption-Key", "keyid=p256dh;dh=" + base64url.omitPadding().encode(dh))
+                    .addHeader("Encryption", "keyid=p256dh;salt=" + base64url.omitPadding().encode(salt))
+                    .bodyByteArray(encrypted.getCiphertext());
         }
 
-        Async async = Async.newInstance().use(threadpool);
-
-        return async.execute(request);
+        return request.execute().returnContent();
     }
 }
